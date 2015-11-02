@@ -52,59 +52,34 @@ void init_i2c(char *DeviceName)
         }
 }
 
-// This function gets the voltage from the variable data2[1] by removing
-// the rightmost bit and adjacent bit, and uses the rest of bits to generate 
-// a bianry code, whose decimal representation multiplied by 20 mV 
-// represents the charging voltage - details on datasheet, pg-33
-
-double get_voltage(int dec) 
-{
-	
-	int remainder, quotient;
-	int binary[100], i=0, j;
-	double newDec = 0.0, vol = 0.0;
-	quotient = dec;
-
-	while(quotient != 0)
-	{
-		binary[i] = quotient % 2;
-		quotient = quotient / 2;
-		i = i + 1;
-	}
-	
-	for(j = i-1; j>1; j--)
-	{	
-		newDec = newDec + pow(2, j-2)*binary[j];
-	}		
-	
-	// This formula from datasheet page no. 33 for battery regulation voltage 
-	vol = 3500.0 + 20.0*newDec;
-	printf("Voltage: %f mVolts\n", vol);
-	return vol;
-}
-
+// Entry point
 int main(int argc, char **argv)
 {
+	/* Variable Declaration */
+
         int i;
 	double v, voltage, timer, parts[2];
-  	byte data[20], data0[20], data1[20], data2[20], data3[20], data4[20], data5[20], data6[20];
+  	byte data[20], data0[2], data1[2], data2[2], data3[2], data4[2], data5[2], data6[2];
 	FILE *file1;
 	const char *filename1 = "testdata.txt";
 	unsigned char file_data[100];
 	time_t rawtime;
 	struct tm *timeinfo;
 	
-	fflush(stdout);
+	/* Execution */
 
 	printf("Inside main \n");
 	
 	// the charger is connected to I2C bus-1 on RPi
         init_i2c("/dev/i2c-1");
 	
-	// set the registers of charger
-	// first assignment tells the address
-	// the next assignment gives the actual value to be stored in decimal format	
-	
+	/* Set the registers of charger */
+
+	// first assignment tells the address - total 7 registers (0-6)
+	// the next assignment gives the actual value to be stored in decimal format
+	// To understand the value -- convert to binary - pad zeros on the left to make 8 bits -
+	//	                      each bit represents value for corresponding regitser bit B0 - B7
+     
 	data0[0] = 0;
 	data0[1] = 148; // 16; //144;   // make the voltage permanent
 	data1[0] = 1;
@@ -120,30 +95,41 @@ int main(int argc, char **argv)
 	data6[0] = 6;
 	data6[1] = 112;
 	
-	
+	// Open the file in read-only mode
 	file1 = fopen(filename1, "rb");
 	
 	if(file1 != NULL) 
 	{
+		/* Some more variables */
+
 		char line[1000];
 		char *part;
 		int q = 0, delV = 0, vBatCode, vBatRegValue, totalDelay = 0;
-		while(fgets(line, sizeof line, file1) != NULL)		/* read a line from file */
+		
+		/* read a line from file */
+
+		while(fgets(line, sizeof line, file1) != NULL)		
 		{
 			printf("%s", line);  // print the line contents to stdout
+
+			// parse the line to get time and voltage
 			part = strtok(line, ",");
 			while(part != NULL) 
 			{
+				// convert the extracted part to float	
 				parts[q] = atof(part);
-//				printf("%f \n", parts[q]);
+				// continue parsing
 				part = strtok(NULL, ",");
 				q++;	
 			}
-			
+			// reset the array counter for next line
 			q = 0;	
+			
 			printf("Time: %lf, voltage: %lf \n", parts[0], parts[1]);
 			
-			// set the value of data2[1] based on the voltage, i.e. parts[1]
+			/* Logic for converting voltage to code as needed by the charger */
+
+			// Get voltage over 3.5V, in milivolts
 			delV = parts[1] * 1000 - 3500;
 			
 			// Regularize bad voltages, no voltage allowed under 3.5 V and over 4.44 V
@@ -156,10 +142,13 @@ int main(int argc, char **argv)
 				delV = 900;
 			}
 			
+			// Our resolution is 20 mV
 			vBatCode = delV / 20;
-			vBatRegValue = vBatCode * 4;			// as the first two bits are zero, pg - 33  of datasheet
+			// as the first two bits are zero, pg - 33  of datasheet
+			vBatRegValue = vBatCode * 4;	
 			data2[1] = vBatRegValue;
-			totalDelay = parts[0];			// This is the time, from the text file.
+			// This is the time, from the text file.	
+			totalDelay = parts[0];
 			
 			setRegisters: 				// GOTO should be used **very rarely**	
 			
@@ -178,9 +167,12 @@ int main(int argc, char **argv)
 			I2cSendData(BQ24261_ADDR, data5, 2);
 			I2cSendData(BQ24261_ADDR, data6, 2);
 			
+			/* Timing Logic */	
+			
 			// The voltage value needs to be re-written to the charger every few seconds (10 here)	
 			while (totalDelay > 0) 
-			{
+			{	
+				// using delay, makes this platform specific
 				if (totalDelay > 10) 
 				{
 					totalDelay = totalDelay - 10;
@@ -195,11 +187,11 @@ int main(int argc, char **argv)
 					
 			}
 
-			// set a delay based on the time, i.e. parts[0]
-			// delay(1000 * parts[0]);
 		}
-
+		
+		// Close the file	
 		fclose(file1);
+		printf("\n\n\n *****Charging done !!!*****");
 	}
 	else
 	{
