@@ -28,4 +28,4 @@ time3, voltage3
 
 What this file does, is simply get the voltage and time from the file testdata.txt and set the charger to charger at this voltage for the given time, then move to the next line and so on. This file communicates with the charger using the I2C protocol. Read the charger datasheet for more info on the charger. 
 
-Use issues to reaise doubts regarding the code. 
+Use issues to raise doubts regarding the code. 
