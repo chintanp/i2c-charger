@@ -86,8 +86,13 @@ double get_voltage(int dec)
 int main(int argc, char **argv)
 {
         int i;
-	double v;
+	double v, voltage, timer, parts[2];
   	byte data[20], data0[20], data1[20], data2[20], data3[20], data4[20], data5[20], data6[20];
+	FILE *file1;
+	const char *filename1 = "testdata.txt";
+	unsigned char file_data[100];
+	time_t rawtime;
+	struct tm *timeinfo;
 	
 	fflush(stdout);
 
@@ -95,17 +100,17 @@ int main(int argc, char **argv)
 	
 	// the charger is connected to I2C bus-1 on RPi
         init_i2c("/dev/i2c-1");
-
+	
 	// set the registers of charger
 	// first assignment tells the address
 	// the next assignment gives the actual value to be stored in decimal format	
 	
 	data0[0] = 0;
-	data0[1] = 144;
+	data0[1] = 148; // 16; //144;   // make the voltage permanent
 	data1[0] = 1;
 	data1[1] = 64;
 	data2[0] = 2;
-	data2[1] = 160;
+	//	data2[1] = 160;
 	data3[0] = 3;
 	data3[1] = 70;
 	data4[0] = 4;
@@ -115,31 +120,92 @@ int main(int argc, char **argv)
 	data6[0] = 6;
 	data6[1] = 112;
 	
-	// Let this loop untill stopped
-	while ( true ) { 
-
-		v = get_voltage(data2[1]);
-				
-		// Write data to teh I2C device, one register at a time
-		I2cSendData(BQ24261_ADDR, data0, 2);
-		I2cSendData(BQ24261_ADDR, data1, 2);
-		I2cSendData(BQ24261_ADDR, data2, 2);
-		I2cSendData(BQ24261_ADDR, data3, 2);
-		I2cSendData(BQ24261_ADDR, data4, 2);
-		I2cSendData(BQ24261_ADDR, data5, 2);
-		I2cSendData(BQ24261_ADDR, data6, 2);
-		
-		// Simple logic to update the voltage value, just increment to the next possible value		
-		data2[1] = data2[1] + 4;
-		
-		// Rest back to minimum value, once it reaches peak value
-		if(data2[1] == 188) {
+	
+	file1 = fopen(filename1, "rb");
+	
+	if(file1 != NULL) 
+	{
+		char line[1000];
+		char *part;
+		int q = 0, delV = 0, vBatCode, vBatRegValue, totalDelay = 0;
+		while(fgets(line, sizeof line, file1) != NULL)		/* read a line from file */
+		{
+			printf("%s", line);  // print the line contents to stdout
+			part = strtok(line, ",");
+			while(part != NULL) 
+			{
+				parts[q] = atof(part);
+//				printf("%f \n", parts[q]);
+				part = strtok(NULL, ",");
+				q++;	
+			}
 			
-			data2[1] = 0;
+			q = 0;	
+			printf("Time: %lf, voltage: %lf \n", parts[0], parts[1]);
+			
+			// set the value of data2[1] based on the voltage, i.e. parts[1]
+			delV = parts[1] * 1000 - 3500;
+			
+			// Regularize bad voltages, no voltage allowed under 3.5 V and over 4.44 V
+			if (delV < 0)
+			{
+				delV = 0;
+			}
+			else if (delV > 900)
+			{
+				delV = 900;
+			}
+			
+			vBatCode = delV / 20;
+			vBatRegValue = vBatCode * 4;			// as the first two bits are zero, pg - 33  of datasheet
+			data2[1] = vBatRegValue;
+			totalDelay = parts[0];			// This is the time, from the text file.
+			
+			setRegisters: 				// GOTO should be used **very rarely**	
+			
+			// Find the time of register write
+			time (&rawtime);
+			timeinfo = localtime(&rawtime);
+			printf("Current local time and data: %s \n", asctime(timeinfo));
+			printf("Setting voltage to: %lf \n", 3500.0 + delV);
+
+			// Write data to the I2C device, one register at a time
+			I2cSendData(BQ24261_ADDR, data0, 2);
+			I2cSendData(BQ24261_ADDR, data1, 2);
+			I2cSendData(BQ24261_ADDR, data2, 2);
+			I2cSendData(BQ24261_ADDR, data3, 2);
+			I2cSendData(BQ24261_ADDR, data4, 2);
+			I2cSendData(BQ24261_ADDR, data5, 2);
+			I2cSendData(BQ24261_ADDR, data6, 2);
+			
+			// The voltage value needs to be re-written to the charger every few seconds (10 here)	
+			while (totalDelay > 0) 
+			{
+				if (totalDelay > 10) 
+				{
+					totalDelay = totalDelay - 10;
+					delay(10000);
+					goto setRegisters;
+				}
+				else if (totalDelay < 10) 
+				{
+					delay(totalDelay * 1000);					
+					totalDelay = 0;
+				}	
+					
+			}
+
+			// set a delay based on the time, i.e. parts[0]
+			// delay(1000 * parts[0]);
 		}
-		
-		delay(3000);	
+
+		fclose(file1);
 	}
+	else
+	{
+		perror(filename1);
+	}
+
         close(deviceDescriptor);
 
         endwin();
