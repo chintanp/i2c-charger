@@ -3,8 +3,7 @@ Codes related to BQ24261 i2c charger.
 
 
 ## Main File
-   ========
-  
+
   * charger.c - Run this file like so on a linux prompt: 
     ` gcc -o charger charger.c -lncurses -lm -lwiringPi 
 to generate an executable named "charger". On the linux prompt, use - 
