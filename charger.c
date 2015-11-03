@@ -85,7 +85,7 @@ int main(int argc, char **argv)
 	data1[0] = 1;
 	data1[1] = 64;
 	data2[0] = 2;
-	//	data2[1] = 160;
+	data2[1] = 4;
 	data3[0] = 3;
 	data3[1] = 70;
 	data4[0] = 4;
@@ -146,7 +146,16 @@ int main(int argc, char **argv)
 			vBatCode = delV / 20;
 			// as the first two bits are zero, pg - 33  of datasheet
 			vBatRegValue = vBatCode * 4;	
-			data2[1] = vBatRegValue;
+			
+			// The zero problem, the voltage starts with 3.6, even trying to set it to 3.5, so rather, starting with 3.52
+			if(vBatRegValue == 0)
+			{
+				data2[1] = 4; //vBatRegValue;
+			}
+			else 
+			{
+				data2[1] = vBatRegValue;
+			}
 			// This is the time, from the text file.	
 			totalDelay = parts[0];
 			
@@ -159,6 +168,8 @@ int main(int argc, char **argv)
 			printf("Setting voltage to: %lf \n", 3500.0 + delV);
 
 			// Write data to the I2C device, one register at a time
+			printf("data0[1] : %d, data1[1]: %d, data2[1]: %d, data3[1]: %d \n", data0[1], data1[1], data2[1], data3[1]);
+			printf("data4[1] : %d, data5[1]: %d, data6[1]: %d \n", data4[1], data5[1], data6[1]);
 			I2cSendData(BQ24261_ADDR, data0, 2);
 			I2cSendData(BQ24261_ADDR, data1, 2);
 			I2cSendData(BQ24261_ADDR, data2, 2);
@@ -197,7 +208,8 @@ int main(int argc, char **argv)
 	{
 		perror(filename1);
 	}
-
+	
+	printf("\n\n\n *****Charging done !!!*****");	
         close(deviceDescriptor);
 
         endwin();
