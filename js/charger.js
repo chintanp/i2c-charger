@@ -107,7 +107,7 @@ lr.on('line', function (line) {
 
         }
         
-        else if (timeDelay < 10) {
+        else if (timeDelay <= 10) {
         
             delayed.delay( function() { 
 
@@ -165,5 +165,5 @@ function getDateTime() {
     return year + ":" + month + ":" + day + ":" + hour + ":" + min + ":" + sec;
 
 }
-//device1.setAddress(0x6B);
+
 

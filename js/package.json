@@ -1,0 +1,30 @@
+{
+  "name": "charger",
+  "version": "1.0.0",
+  "description": "This file sets the charging profile for the BQ-24261 charger",
+  "main": "charger.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chintanp/i2c-charger"
+  },
+  "keywords": [
+    "i2c",
+    "charger",
+    "nodejs",
+    "c"
+  ],
+  "author": "Chintan Pathak",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/chintanp/i2c-charger/issues"
+  },
+  "homepage": "https://github.com/chintanp/i2c-charger", 
+  "dependencies": {
+        "i2c": "~0.2.1",
+        "line-by-line": "~0.1.4",
+        "delayed": "~1.0.1"
+  }
+}

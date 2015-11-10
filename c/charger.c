@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 					delay(10000);
 					goto setRegisters;
 				}
-				else if (totalDelay < 10) 
+				else if (totalDelay <= 10) 
 				{
 					delay(totalDelay * 1000);					
 					totalDelay = 0;
