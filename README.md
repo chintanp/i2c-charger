@@ -1,11 +1,11 @@
 # i2c-charger
-Repository containing codes related to BQ24261 I2C charger.
+Repository containing codes related to TI chargers and Fuel-gauges
 
 
 ### Main Files
 
-  * ./c/charger.c - Sets the voltage with an accuracy of 20 mV   
-  * ./js/charger.js - NodeJS file, does the same thing as above. npm install to get the dependencies.
+  * ./BQ-24261-Charger/c/charger.c - Sets the voltage with an accuracy of 20 mV   
+  * ./BQ-24261-Charger/js/charger.js - NodeJS file, does the same thing as above. npm install to get the dependencies.
 
 **Description**  
 
