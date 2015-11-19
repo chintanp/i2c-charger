@@ -1,0 +1,33 @@
+{
+  "name": "fuel-gauge",
+  "version": "1.0.0",
+  "description": "This file reads the battery information using BQ-27441 fuel gauge",
+  "main": "gauge.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": "0.12.0"
+  },  
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chintanp/i2c-charger"
+  },
+  "keywords": [
+    "i2c",
+    "fuel-gauge",
+    "nodejs",
+    "c"
+  ],
+  "author": "Chintan Pathak",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/chintanp/i2c-charger/issues"
+  },
+  "homepage": "https://github.com/chintanp/i2c-charger", 
+  "dependencies": {
+        "i2c": "~0.2.1",
+        "line-by-line": "~0.1.4",
+        "delayed": "~1.0.1"
+  }
+}
