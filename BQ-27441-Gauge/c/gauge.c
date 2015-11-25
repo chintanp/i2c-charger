@@ -3,8 +3,6 @@
  * TI-make BQ-27441 battery fuel gauge. Data to be set include 
  * "Design Capacity", "Termination Voltage" etc. Data to be read 
  * include "Voltage", "Current", "Temperature", "SOC", etc.
- * 
- * Compile with flags "-lm -lwiringPi -lncurses"
  */
 
 /* 
@@ -14,8 +12,6 @@
  * Created on November 17, 2015, 5:44 PM
  */
 
-#define BQ27441_ADDR 0x55 		// taken from datasheet - page 13
-#define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
 #include <stdio.h>
 #include <unistd.h>
@@ -30,6 +26,58 @@
 #include <sys/time.h>
 #include <curses.h>
 #include <wiringPi.h>
+//#include "bq27x00_battery.c"
+
+#define BQ27441_ADDR 0x55 		// taken from datasheet - page 13
+#define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
+
+#define BQ27441_CONTROL_STATUS		0x0000
+#define BQ27441_DEVICE_TYPE		0x0001
+#define BQ27441_FW_VERSION		0x0002
+#define BQ27441_DM_CODE			0x0004
+#define BQ27441_PREV_MACWRITE		0x0007
+#define BQ27441_CHEM_ID			0x0008
+#define BQ27441_BAT_INSERT		0x000C
+#define BQ27441_BAT_REMOVE		0x000D
+#define BQ27441_SET_HIBERNATE		0x0011
+#define BQ27441_CLEAR_HIBERNATE		0x0012
+#define BQ27441_SET_CFGUPDATE		0x0013
+#define BQ27441_SHUTDOWN_ENABLE		0x001B
+#define BQ27441_SHUTDOWN		0x001C
+#define BQ27441_SEALED			0x0020
+#define BQ27441_PULSE_SOC_INT		0x0023
+#define BQ27441_RESET			0x0041
+#define BQ27441_SOFT_RESET		0x0042
+
+#define BQ27441_CONTROL_1		0x00
+#define BQ27441_CONTROL_2		0x01
+#define BQ27441_TEMPERATURE		0x02
+#define BQ27441_VOLTAGE			0x04
+#define BQ27441_FLAGS			0x06
+#define BQ27441_NOMINAL_AVAIL_CAPACITY	0x08
+#define BQ27441_FULL_AVAIL_CAPACITY	0x0a
+#define BQ27441_REMAINING_CAPACITY	0x0c
+#define BQ27441_FULL_CHG_CAPACITY	0x0e
+#define BQ27441_AVG_CURRENT		0x10
+#define BQ27441_STANDBY_CURRENT		0x12
+#define BQ27441_MAXLOAD_CURRENT		0x14
+#define BQ27441_AVERAGE_POWER		0x18
+#define BQ27441_STATE_OF_CHARGE		0x1c
+#define BQ27441_INT_TEMPERATURE		0x1e
+#define BQ27441_STATE_OF_HEALTH		0x20
+
+#define BQ27441_BLOCK_DATA_CHECKSUM	0x60
+#define BQ27441_BLOCK_DATA_CONTROL	0x61
+#define BQ27441_DATA_BLOCK_CLASS	0x3E
+#define BQ27441_DATA_BLOCK		0x3F
+
+#define BQ27441_DESIGN_CAPACITY_1	0x4A
+#define BQ27441_DESIGN_CAPACITY_2	0x4B
+
+#define BQ27441_BATTERY_LOW		15
+#define BQ27441_BATTERY_FULL		100
+
+#define BQ27441_MAX_REGS		0x7F
 
 typedef unsigned char byte;
 
@@ -65,6 +113,20 @@ void I2cReadData(byte addr,byte *data,int len)
         read(deviceDescriptor,data,len);
 }
 
+/* This function returns the substring of the string */
+char* substring(const char* str, int beg, int n) 
+{
+        char *ret = malloc(n+1);
+        
+        if (beg+n >= strlen(str))
+                return NULL;
+        
+        strncpy(ret, (str + beg), n);
+        *(ret + n) = 0;
+        
+        return ret;
+}
+
 /* Convert the number to hexadecimal representation */
 void to_hex_16(char *output, unsigned n)
 {
@@ -76,7 +138,22 @@ void to_hex_16(char *output, unsigned n)
         output[4] = '\0';
 }
 
-/* Computes the checksum by adding the registers and then subtracting from 255 */
+long to_dec_10(unsigned const char *hex) 
+{
+        static const long hextable[] = {
+                ['0'] = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 
+                ['A'] = 10, 11, 12, 13, 14, 15,
+                ['a'] = 10, 11, 12, 13, 14, 15
+        };
+        
+        long ret = 0;
+        
+        while (*hex && ret >= 0) {
+                ret = (ret << 4) | hextable[*hex++];
+        }
+        return ret;
+}
+
 static int checksum(byte *check_data)
 {
         int sum = 0;
@@ -118,50 +195,38 @@ int getliner(char line[], int max)
         return nch;
 }
 
-int main(int argc, char **argv)
+void perform_config() 
 {
-        int i, voltage, design_capacity, new_design_capacity, new_design_cap_hex;
-        int des_cap[10], cksum = 0;
         byte data[100], writeData[100], unseal_data[10], cfgupdate_data[10], flag_data[10], flag_out[10]; 
         byte block_data_control[10], data_block_class[10], data_block[10], block_data_checksum[10];
         byte block_data_checksum_data[10], design_capacity_loc[10], design_capacity_data[10];
         byte soft_reset[10], seal_data[10];
-        float remaining_batt_cap = 0.0; 
-        float full_charge_cap = 0.0;
-        float soc = 0.0; 
-        float temp = 0.0;
-        float current = 0.0;
+        int i, design_capacity, new_design_capacity, new_design_cap_hex; 
+        int des_cap[10], cksum = 0;
         char new_design_cap[7], a[10], b[10], tmp[10];
         
-	    printf("Inside main \n");
-	
-        init_i2c("/dev/i2c-1");
-	
-        writeData[0] = 0x00;
-        writeData[1] = 0x04;
-		
-        unseal_data[0] = 0x00;
+        unseal_data[0] = BQ27441_CONTROL_1;
         unseal_data[1] = 0x00;
         unseal_data[2] = 0x80;
 
-        cfgupdate_data[0] = 0x00;
+        cfgupdate_data[0] = BQ27441_CONTROL_1;
         cfgupdate_data[1] = 0x13;
         cfgupdate_data[2] = 0x00;
 
-        flag_data[0] = 0x06;
+        flag_data[0] = BQ27441_FLAGS;
 
-        block_data_control[0] = 0x61;
+        block_data_control[0] = BQ27441_BLOCK_DATA_CONTROL;
         block_data_control[1] = 0x00;
 
-        data_block_class[0] = 0x3E;
+        data_block_class[0] = BQ27441_DATA_BLOCK_CLASS;
         data_block_class[1] = 0x52;
 
-        data_block[0] = 0x3F;
+        data_block[0] = BQ27441_DATA_BLOCK;
         data_block[1] = 0x00;
 
-        block_data_checksum[0] = 0x60;
+        block_data_checksum[0] = BQ27441_BLOCK_DATA_CHECKSUM;
 
-        design_capacity_loc[0] = 0x4A;
+        design_capacity_loc[0] = BQ27441_DESIGN_CAPACITY_1;
 
         soft_reset[0] = 0x00;
         soft_reset[1] = 0x42;
@@ -170,8 +235,7 @@ int main(int argc, char **argv)
         seal_data[0] = 0x00;
         seal_data[1] = 0x20;
         seal_data[2] = 0x00;
-
-
+        
         /* Unseal the gauge - Refer TRM - Pg-14 */
         I2cSendData(BQ27441_ADDR, unseal_data, 3);      // #1
         I2cSendData(BQ27441_ADDR, unseal_data, 3);          
@@ -246,9 +310,9 @@ int main(int argc, char **argv)
 
                                 block_data_checksum[1] = cksum;                                                 // #11    
                                 I2cSendData(BQ27441_ADDR, block_data_checksum, 2);
-                                delay(5);
-                                I2cSendData(BQ27441_ADDR, soft_reset, 3);                                       // #12
                                 delay(1000);
+                                I2cSendData(BQ27441_ADDR, soft_reset, 3);                                       // #12
+                                delay(5);
                                 //printf("Design Cap data 0: %x", data[72]);
                                 //printf("Design Cap data :1 %x", data[73]);
                                 //design_capacity = data[72]*16*16 + data[73];
@@ -274,6 +338,28 @@ int main(int argc, char **argv)
                 printf("Cannot proceed with configuration. \n");
                 printf("The CFGUPDATE MODE has not been enabled yet. \n");
         }
+    
+}
+
+int main(int argc, char **argv)
+{
+        int i, voltage;
+        byte data[100], writeData[100]; 
+        float remaining_batt_cap = 0.0; 
+        float full_charge_cap = 0.0;
+        float soc = 0.0; 
+        float temp = 0.0;
+        float current = 0.0;
+        
+        writeData[0] = 0x00;
+        writeData[1] = 0x04;
+        
+	printf("Inside main \n");
+	
+        init_i2c("/dev/i2c-1");
+	
+        update_design_cap();
+        
         while(true) {
                 /* Reading the device registers */
                 I2cSendData(BQ27441_ADDR, writeData, 2);
