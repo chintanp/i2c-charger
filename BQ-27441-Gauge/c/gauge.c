@@ -115,6 +115,20 @@ void I2cReadData(byte addr,byte *data,int len)
         read(deviceDescriptor,data,len);
 }
 
+/* This function returns the substring of the string */
+char* substring(const char* str, int beg, int n) 
+{
+        char *ret = malloc(n+1);
+        
+        if (beg+n >= strlen(str))
+                return NULL;
+        
+        strncpy(ret, (str + beg), n);
+        *(ret + n) = 0;
+        
+        return ret;
+}
+
 /* Convert the number to hexadecimal representation */
 void to_hex_16(char *output, unsigned n)
 {
@@ -126,7 +140,6 @@ void to_hex_16(char *output, unsigned n)
         output[4] = '\0';
 }
 
-/* Calculates the checksum */
 static int checksum(byte *check_data)
 {
         int sum = 0;
@@ -401,7 +414,7 @@ int main(int argc, char **argv)
         writeData[0] = 0x00;
         writeData[1] = 0x04;
         
-	    printf("Inside main \n");
+	printf("Inside main \n");
 	
         init_i2c("/dev/i2c-1");
 	

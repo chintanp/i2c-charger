@@ -3,6 +3,7 @@
 var i2c = require('i2c');
 var LineByLineReader = require('line-by-line');
 var delayed = require('delayed');
+var async = require('async');
 
 var BQ27441_ADDR = 0x55;  
 
@@ -41,7 +42,43 @@ function ask(question, format, callback) {
     });
 }
 
-ask("Name", /.+/, function(name) {
+function read_all_regs () {
+    gauge.write([0x00, 0x04], function(err) {
+        
+        if(err) {
+            console.log("Error writing values : " + err);
+        }
+        else
+            console.log("Successfully written to I2C");
+        
+    });
+    
+    gauge.read(100, function(err, res) {
+                
+        if(err) {
+            console.log("Error reading values : " + err);
+        }
+        else {
+            
+            vol = res[4]*16*16 + res[3];
+            rbc = res[12]*16*16 + res[11];
+            fcc = res[14]*16*16 + res[13];
+            soc = (rbc/fcc)*100;
+            temp = (res[2]*16*16 + res[1])/10.0 - 273.0;
+            cur = res[16]*16*16 + res[15];
+            
+            console.log("Voltage : " + vol + " mV");
+            console.log("Remaining Battery Capacity : " + rbc + " mAh");
+            console.log("Full Charge Capacity : " + fcc + " mAh");
+            console.log("SOC : " + soc + " %");
+            console.log("Ambient Temperature : " + temp + " deg C");
+            console.log("Average Current : " + cur + " mA");
+            
+        }
+    });
+}
+
+/* ask("Name", /.+/, function(name) {
     ask("Email", /^.+@.+$/, function(email) {
         console.log("Your name is: ", name);
         console.log("Your email is: ", email);
@@ -58,10 +95,10 @@ ask("Name", /.+/, function(name) {
             
         });
         
-        /* Unsealing the gauge with an instruction set */
+      // Unsealing the gauge with an instruction set
         
         // Read the TRM - page 14
-        
+       
         gauge.write([0x00, 0x00, 0x80], function(err) {
             
             if(err) {
@@ -81,7 +118,7 @@ ask("Name", /.+/, function(name) {
                 console.log("Written successfully, must be unsealed.");
             }
         });
-        
+       
         // Make the gauge configurable
         
         gauge.write([0x00, 0x13, 0x00], function(err) {
@@ -124,5 +161,10 @@ ask("Name", /.+/, function(name) {
         });
    });
 });
+*/
 
+console.log("Begin program");
 
+for(;;) {
+    setTimeout(read_all_regs(), 1000);
+}

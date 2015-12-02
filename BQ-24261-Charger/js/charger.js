@@ -47,75 +47,152 @@ lr.on('line', function (line) {
     // 'line' contains the current line without the trailing newline character.
     console.log("Line read : " + line);
     
+    // Each line is an ordered-pair of time,current,voltage
+    // Only one of current or voltage, will be non-zero.
     var lineParts = line.toString().split(",");
     var time = parseFloat(lineParts[0]);
-    var voltage = parseFloat(lineParts[1]);
+    var current = parseFloat(lineParts[1]);
+    var voltage = parseFloat(lineParts[2]);
     
-    console.log("Time: " + time + "Voltage : " + voltage);
-    /* Logic for converting voltage to code as needed by the charger */
-
-	// Get voltage over 3.5V, in milivolts
-	var delV = voltage * 1000 - 3500;
-	
-	// Regularize bad voltages, no voltage allowed under 3.5 V and over 4.44 V
-	if (delV < 0) {
-		
-		delV = 0;
-	}
-	else if (delV > 900) {
-		
-		delV = 900;
-	}
-	
-	// Our resolution is 20 mV
-	var vBatCode = delV / 20;
-	// as the first two bits are zero, pg - 33  of datasheet
-	var vBatRegValue = vBatCode * 4;	
-	
-	// The zero problem, the voltage starts with 3.6, even trying to set it to 3.5, so rather, starting with 3.52
-	if(vBatRegValue < 4) {
-		
-		data2[1] = 4; //vBatRegValue;
-	}
-	else {
-	    
-		data2[1] = vBatRegValue;
-	}
-    
-    var timeDelay = time;
-    
-    setValues (data0, data1, data2, data3, data4, data5, data6);
-    
-    delayed.delay( function() {
+    if (current == 0) {
+        console.log("Trying to set voltage to : " + voltage + " V for a time of : " + time);
         
-        lr.resume();
-    
-    }, timeDelay*1000);
-    
-    while (timeDelay > 0.0) {
+         /* Logic for converting voltage to code as needed by the charger */
+
+    	// Get voltage over 3.5V, in milivolts
+    	var delV = voltage * 1000 - 3500;
+    	
+    	// Regularize bad voltages, no voltage allowed under 3.5 V and over 4.44 V
+    	if (delV < 0) {
+    		
+    		delV = 0;
+    	}
+    	else if (delV > 900) {
+    		
+    		delV = 900;
+    	}
+    	
+    	// Our resolution is 20 mV
+    	var vBatCode = delV / 20;
+    	// as the first two bits are zero, pg - 33  of datasheet
+    	var vBatRegValue = vBatCode * 4;	
+    	
+    	// The zero problem, the voltage starts with 3.6, even trying to set it to 3.5, so rather, starting with 3.52
+    	if(vBatRegValue < 4) {
+    		
+    		data2[1] = 4; //vBatRegValue;
+    	}
+    	else {
+    	    
+    		data2[1] = vBatRegValue;
+    	}
         
-        if (timeDelay > 10.0) {
-
-            delayed.delay( function() {
-                
-                setValues (data0, data1, data2, data3, data4, data5, data6);
-                console.log("TimeDelay :" + timeDelay);
-
-            }, timeDelay*1000);
-
-            timeDelay = timeDelay - 10.0;
-
+        var timeDelay = time;
+        
+        setValues (data0, data1, data2, data3, data4, data5, data6);
+        
+        delayed.delay( function() {
+            
+            lr.resume();
+        
+        }, timeDelay*1000);
+        
+        while (timeDelay > 0.0) {
+            
+            if (timeDelay > 10.0) {
+    
+                delayed.delay( function() {
+                    
+                    setValues (data0, data1, data2, data3, data4, data5, data6);
+                    console.log("TimeDelay :" + timeDelay);
+    
+                }, timeDelay*1000);
+    
+                timeDelay = timeDelay - 10.0;
+    
+            }
+            
+            else if (timeDelay <= 10) {
+            
+                delayed.delay( function() { 
+    
+                }, timeDelay*1000);
+    
+                timeDelay = 0.0;
+    
+            }
         }
+    } else if (voltage == 0) {
+        console.log("Trying to set current to : " + current + " mA for a time of : " + time);
         
-        else if (timeDelay <= 10) {
+         /* Logic for converting current to code as needed by the charger */
+
+    	// Get current over 500 mA
+    	var delI = current - 500;
+    	
+    	// Regularize bad currents, no current allowed under 500 mA and over 3000 mA
+    	if (delI < 0) {
+    	
+    		delI = 0;
+    	} else if (delI > 2500) {
+    		
+    		delI = 2500;
+    	}
+    	
+    	// Our resolution is 100 mA
+    	var iBatCode = delI / 100;
+    	// as the first three bits are 010, pg - 33  of datasheet
+    	var iBatRegValue = iBatCode * 8 + 2;	
+    	
+    	data2[1] = iBatRegValue;
+    	/*// The zero problem, the voltage starts with 3.6, even trying to set it to 3.5, so rather, starting with 3.52
+    	if(vBatRegValue < 4) {
+    		
+    		data2[1] = 4; //vBatRegValue;
+    	}
+    	else {
+    	    
+    		data2[1] = vBatRegValue;
+    	}*/
+    	
         
-            delayed.delay( function() { 
-
-            }, timeDelay*1000);
-
-            timeDelay = 0.0;
-
+        var timeDelay = time;
+        
+        setValues (data0, data1, data2, data3, data4, data5, data6);
+        
+        delayed.delay( function() {
+            
+            lr.resume();
+        
+        }, timeDelay*1000);
+        
+        while (timeDelay > 0.0) {
+            
+            if (timeDelay > 10.0) {
+    
+                delayed.delay( function() {
+                    
+                    setValues (data0, data1, data2, data3, data4, data5, data6);
+                    console.log("TimeDelay :" + timeDelay);
+    
+                }, timeDelay*1000);
+    
+                timeDelay = timeDelay - 10.0;
+    
+            }
+            
+            else if (timeDelay <= 10) {
+            
+                delayed.delay( function() { 
+    
+                }, timeDelay*1000);
+    
+                timeDelay = 0.0;
+    
+            }
         }
+    } else {
+        console.log("Something wrong with the input, eiher one of voltage or current should be zero.");
     }
 });
 
