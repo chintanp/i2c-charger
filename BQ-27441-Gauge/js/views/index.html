@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!doctype html>
+
+<html ng-app="sensorApp" lang="en">
+	<head>
+		<title>Sensor Data from TIVA C LaunchPad</title>
+		<base href="/">
+        <meta name="viewport" content="width=device-width, initial-scale=1" charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<script type="text/javascript" src="js/lib/angular/angular.min.js"></script>
+		<script src="js/d3.min.js"></script>
+		<script src="js/epoch.min.js"></script>
+		<script src="js/jquery-1.11.3.min.js"></script>
+		<link rel="stylesheet" type="text/css" href="css/epoch.min.css">
+        <!--<script type="text/javascript" src="js/app.js"></script> -->
+        <script type="text/javascript" src="js/controllers.js"></script>
+        <!--<script type="text/javascript" src="/socket.io/socket.io.js"></script> -->
+
+        <script src="https://cdn.socket.io/socket.io-1.3.6.js"></script>
+        
+        <!--Bootstrap-->
+        <link href="css/bootstrap-responsive.min.css" rel="stylesheet" media="screen">
+        
+        <!--Socket.io 
+        <script src='http://172.16.12.33:3000/socket.io/socket.io.js'></script> -->
+
+        <!-- d3.js for visualisation -->
+
+        <script src="js/lib/d3.min.js"></script>
+
+        <style type="text/css">
+
+
+            /* Large Desktop */
+            @media (min-width: 980px) {
+              body {
+                padding-top: 60px;
+              }
+              .linediv-l {
+                border-right: 1px white solid;
+              }
+              .linediv-r {
+                border-left: 1px white solid;
+              }
+            }
+            
+            /* Landscape phones and down */
+            
+            @media (max-width: 480px) {
+              .copy {    
+                padding: 2.5% 10%;
+              }
+              .linediv-l {
+                border-bottom: 1px white solid;
+              }
+              .linediv-r {
+                border-top: 1px white solid;
+              }
+            }
+        </style>
+
+	</head>
+	<body>
+		<div class="container fluid" ng-controller="SensorDataCtrl" >
+	            <div class="hero-unit span12">
+	                
+	                <h1>Sensor Data Display</h1>
+	                <h2>Located @ CIVILIPSA, IES IPSA, Indore</h1>
+	                <h3>Updating live...</h2>
+	                
+	            </div>
+	            
+	            <!--Body content-->
+	            <div>
+	                <h4 ng-hide="hide_on_data">Wait for it ......</h4>
+	            </div>
+
+				{{ sensordata }}
+	            <!--<div class="table-responsive span10" >
+	                <table class="table table-bordered table-striped table-hover weather_data">
+	                    <thead class="panel">
+	                        <tr>
+	                            <th>#</th>
+	                            <th>Quantity</th>
+	                            <th>Value</th>
+	                        </tr>
+	                    </thead>
+	                    <tbody ng-repeat="sensor_row in sensordata | filter:query">
+	                    
+	                        <tr>
+	                            <td>{{ $index + 1 }}</td>
+	                            <td>{{ sensor_row.sensor }}</td>
+	                            <td>{{ sensor_row.value + " " + sensor_row.unit }}</td>
+	                        </tr>
+	                                   
+	                    </tbody>
+	                </table>    
+	            </div>-->
+	                
+	        </div>    
+
+	        <div id="lineChart" style="width: 800px; height: 200px"></div>
+	        <script type="text/javascript">
+
+        var lineChartData = [
+          // First series
+          {
+            label: "Series 1",
+            values: []
+          },
+
+          // The second series
+          {
+            label: "Series 2",
+            values: []
+          }
+        ];
+        
+        jQuery(function($){ // DOM is now read and ready to be manipulated
+
+        jQuery('#lineChart').epoch({
+            type: 'time.line',
+            data: lineChartData
+        });
+    });
+	              d3.select("body").select("div.hero-unit").style("background-color", "#6f5499"); 
+	              d3.select("body").select("div.hero-unit").selectAll("h1").style("color", "#fff").style("font-family", "Helvetica Neue', Helvetica, Arial, sans-serif"); 
+	              d3.select("body").select("div.hero-unit").select("h2").style("color", "#cdbfe3");
+	              d3.select("body").select(".panel").style("background-color", "#428bca")
+	              d3.select("body").select(".panel").style("color", "#fff")
+	        </script>
+
+	</body>
+</html>

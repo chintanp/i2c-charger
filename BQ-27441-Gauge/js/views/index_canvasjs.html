@@ -1,0 +1,100 @@
+
+<html>
+
+<head>
+	<script type="text/javascript">
+	window.onload = function () {
+
+		
+		function getDateTime() {
+		    var time = new Date().getTime();
+		    // 32400000 is (GMT+9 Japan)
+		    // for your timezone just multiply +/-GMT by 36000000
+		    //var datestr = new Date(time + 19800000).toISOString().replace(/T/, ' ').replace(/Z/, '');
+		    var dateTime = time; //+ 19800000;
+		    return dateTime;
+		}
+
+		var socket = io.connect('http://10.95.145.56:5002');
+
+		var dps_vol = []; // dataPoints
+
+		var chart_vol = new CanvasJS.Chart("chartContainerHum",{
+			title :{
+				text: "Live Battery Voltage"
+			},
+			zoomEnabled: true, 
+
+			data: [{
+				type: "line",
+				xValueType: "dateTime",
+				dataPoints: dps_vol 
+			}]
+		});
+
+		var dps_cur = []; // dataPoints
+		var chart_cur = new CanvasJS.Chart("chartContainerTemp",{
+			title :{
+				text: "Live Battery Current"
+			},
+			zoomEnabled: true, 
+
+			data: [{
+				type: "line",
+				xValueType: "dateTime",
+				dataPoints: dps_cur
+			}]
+		});
+
+		var xVal = getDateTime();
+
+		var yVal_vol = 100;	
+		var yVal_cur = 100;
+		
+		var updateInterval = 1000;
+		var dataLength = 100; // number of dataPoints visible at any point
+
+		socket.on('old_data', function(data) {
+			
+			console.log(data);
+			var sensorData = data.livedata;
+			var vol = sensorData.vol;
+			var cur = sensorData.cur;
+
+			xVal = getDateTime();
+			yVal_vol = vol;
+			yVal_cur = cur;
+
+			dps_vol.push({
+ 					x: xVal,
+ 					y: yVal_vol
+ 				});
+
+			dps_cur.push({
+ 					x: xVal,
+ 					y: yVal_cur
+ 				});
+
+			if (dps_vol.length > dataLength)
+			{
+				dps_vol.shift();				
+			}
+			
+			if (dps_cur.length > dataLength)
+			{
+				dps_cur.shift();				
+			}
+			chart_vol.render();		
+			chart_cur.render();		
+		});
+	}
+	</script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/canvasjs/1.7.0/canvasjs.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.js"></script>
+</head>
+<body>
+	<div id="chartContainerHum" style="height: 300px; width:100%;"> </div>
+	<div id="chartContainerTemp" style="height: 300px; width:100%;">
+	</div>
+</body>
+</html>

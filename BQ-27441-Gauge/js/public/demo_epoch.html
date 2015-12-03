@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Real-time Graphing of sensor-data</title>
+	<script src="js/d3.min.js"></script>
+	<script src="js/epoch.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="css/epoch.min.css">
+</head>
+<body>
+	<div id="lineChart" style="width: 800px; height: 200px"></div>
+<script>
+var lineChartData = [
+  // First series
+  {
+    label: "Series 1",
+    values: [ {time: 1370044800, y: 100}, {time: 1370044801, y: 1000}, ... ]
+  },
+
+  // The second series
+  {
+    label: "Series 2",
+    values: [ {time: 1370044800, y: 78}, {time: 1370044801, y: 98}, ... ]
+  }
+];
+  $('#lineChart').epoch({
+    type: 'time.line',
+    data: lineChartData
+  });
+</script>
+</body>
+</html>

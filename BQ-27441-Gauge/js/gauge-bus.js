@@ -7,8 +7,8 @@ var express = require('express'),
     net = require('net'),             // For TCP communication with datalogger
     url = require('url'),
     events = require('events'),
-    path = require('path'),           //For manipulating file-paths
-    request = require('request');
+    path = require('path');         //For manipulating file-paths
+    //request = require('request');
 
 var app = module.exports = express();
 var server = require('http').createServer(app);
@@ -49,6 +49,7 @@ var i2c = require('i2c-bus'),
     writeBuffer = new Buffer([0x00, 0x04]);
 
 var BQ27441_ADDR = 0x55;  
+var UPDATE_RATE = 2;
 
 var written1 = gauge.i2cWriteSync(BQ27441_ADDR, 2, writeBuffer);
 //var written2= gauge.i2cWriteSync(BQ27441_ADDR, 1, 0x04);
@@ -60,10 +61,9 @@ if (written1 > 0) {
     
     // Emit welcome message on connection
     io.on('connection', function(http_socket) {
-
-        console.log("Socket connected");
-    
-        temporal.loop(5000, function () { 
+        temporal.loop(UPDATE_RATE*1000, function() {
+            console.log("Socket connected");
+            console.log("Updating data every " + UPDATE_RATE + " secs");
             
             gauge.i2cWriteSync(BQ27441_ADDR, 2, writeBuffer);
             gauge.i2cReadSync(BQ27441_ADDR,100, buffer);
@@ -86,7 +86,7 @@ if (written1 > 0) {
     });
 }
 
-server.listen(8000, function(){
+server.listen(5002, function(){
     console.log("Express server listening on port %d in %s mode", this.address().port, app.settings.env);
 });
 gauge.closeSync();
