@@ -51,6 +51,7 @@ var i2c = require('i2c-bus'),
 var BQ27441_ADDR = 0x55;  
 var UPDATE_RATE = 2;
 
+///TODO: error handling incase of write failed, or battery disconnect
 var written1 = gauge.i2cWriteSync(BQ27441_ADDR, 2, writeBuffer);
 //var written2= gauge.i2cWriteSync(BQ27441_ADDR, 1, 0x04);
 
@@ -86,7 +87,7 @@ if (written1 > 0) {
     });
 }
 
-server.listen(5002, function(){
+server.listen(80, function(){
     console.log("Express server listening on port %d in %s mode", this.address().port, app.settings.env);
 });
 gauge.closeSync();

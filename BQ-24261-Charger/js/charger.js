@@ -22,7 +22,7 @@ var data6 = [];
 data0[0] = 0;
 data0[1] = 148; // 16; //144;   // make the voltage permanent
 data1[0] = 1;
-data1[1] = 64;
+data1[1] = 112;
 data2[0] = 2;
 data2[1] = 4;
 data3[0] = 3;
@@ -144,7 +144,9 @@ lr.on('line', function (line) {
     	// as the first three bits are 010, pg - 33  of datasheet
     	var iBatRegValue = iBatCode * 8 + 2;	
     	
-    	data2[1] = iBatRegValue;
+    	data4[1] = iBatRegValue;
+    	data2[1] = 252;  // 4.2 V
+    	
     	/*// The zero problem, the voltage starts with 3.6, even trying to set it to 3.5, so rather, starting with 3.52
     	if(vBatRegValue < 4) {
     		
