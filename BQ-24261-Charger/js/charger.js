@@ -145,7 +145,7 @@ lr.on('line', function (line) {
     	var iBatRegValue = iBatCode * 8 + 2;	
     	
     	data4[1] = iBatRegValue;
-    	data2[1] = 252;  // 4.2 V
+    	data2[1] = 140;  // 4.2 V
     	
     	/*// The zero problem, the voltage starts with 3.6, even trying to set it to 3.5, so rather, starting with 3.52
     	if(vBatRegValue < 4) {
