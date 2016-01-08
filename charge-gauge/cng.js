@@ -44,95 +44,101 @@ app.get('*', routes.index);
 var i2c = require('i2c-bus'),
     delayed = require('delayed'),
     temporal = require('temporal'),
+    LineByLineReader = require('line-by-line'),
     //i2c1,
     gauge = i2c.openSync(1), 
     charger = i2c.openSync(1),
     gauge_buffer = new Buffer(100000), 
     charger_buffer = new Buffer(100000), 
     vol, rbc, fcc, soc, temp, cur, 
-    writeBuffer = new Buffer([0x00, 0x04]);
+    writeBuffer = new Buffer([0x00, 0x04]),
+    charge_controller = require("./charge_controller.js"),
+    temp_date = new Date();
 
 /* Hardware Addresses */
 var BQ27441_ADDR = 0x55;  
 var BQ24261_ADDR = 0x6B;
 
 // Rate at which measurement of battery voltage etc. is to done
-var UPDATE_RATE = 2;
+var UPDATE_RATE = 10;
 
-gauge.i2cReadSync(BQ27441_ADDR,100, gauge_buffer);
-charger.i2cReadSync(BQ24261_ADDR,100, charger_buffer);
+// Minimum discharge voltage, at this voltage charging is initiated, in mV
+var MIN_DISCHARGE_VOLTAGE = 3600;
 
-console.log("The gauge reads on 00 and 01: " + gauge_buffer[0] + " and " + gauge_buffer[1] );
-console.log("The charger reads on 00 and 01: " + charger_buffer[0] + " and " + charger_buffer[1] );
+var gauge_test = gauge.i2cWriteSync(BQ27441_ADDR, 2, writeBuffer);
 
-
-// File location to read charging profile from 
-//var CHARGE_PROFILE = "testdata.txt";
-
-// var DS1621_ADDR = 0x48,
-//   DS1621_CMD_ACCESS_TH = 0xa1;
-
-// var TSL2561_ADDR = 0x39,
-//   TSL2561_CMD = 0x80,
-//   TSL2561_REG_ID = 0x0a;
-
-// i2c1 = i2c.open(1, function (err) {
-//   if (err) throw err;
-
-//   (function readGauge() {
-//     i2c1.readByte(BQ27441_ADDR, 0x00, function (err, gaugeBase) {
-//       if (err) throw err;
-//       console.log("Gauge reads: " + gaugeBase);
-//       // readGauge();
-//     });
-//   }());
-
-//   (function readCharger() {
-//     i2c1.readByte(BQ24261_ADDR, 0x00, function (err, chargerBase) {
-//       if (err) throw err;
-//       console.log("Charger reads: " + chargerBase);
-//       // readCharger();
-//     });
-//   }());
-// });
-
-// ///TODO: error handling incase of write failed, or battery disconnect
-// var written1 = gauge.i2cWriteSync(BQ27441_ADDR, 2, writeBuffer);
-// //var written2= gauge.i2cWriteSync(BQ27441_ADDR, 1, 0x04);
-
-// if (written1 > 0) {
+if (gauge_test > 0) {
     
-//     console.log("Writen to the I2C device successfully");
-//     console.log("Now trying to read");
+    console.log("Writen to the I2C gauge successfully");
+    console.log("Now trying to read");
     
-//     // Emit welcome message on connection
-//     io.on('connection', function(http_socket) {
-//         temporal.loop(UPDATE_RATE*1000, function() {
-//             console.log("Socket connected");
-//             console.log("Updating data every " + UPDATE_RATE + " secs");
+    // Emit welcome message on connection
+    io.on('connection', function(http_socket) {
+        temporal.loop(UPDATE_RATE*1000, function() {
+            console.log("Socket connected");
+            console.log("Updating data every " + UPDATE_RATE + " secs");
             
-//             gauge.i2cWriteSync(BQ27441_ADDR, 2, writeBuffer);
-//             gauge.i2cReadSync(BQ27441_ADDR,100, buffer);
+            var battery_stats = getBatteryStats();
             
-//             var battery_stats = {
-//                 vol : buffer[4]*16*16 + buffer[3],
-//                 rbc : buffer[12]*16*16 + buffer[11],
-//                 fcc : buffer[14]*16*16 + buffer[13],
-//                 soc : buffer[28]*16*16 + buffer[27],
-//                 temp : (buffer[2]*16*16 + buffer[1])/10.0 - 273.0,
-//                 cur : buffer[16]*16*16 + buffer[15]
-//             }
-//             if (battery_stats.cur >= 32267) 
-//                 battery_stats.cur = battery_stats.cur - 65536;          // two's complement as signed integer
+            console.log(battery_stats);
             
-//             console.log(battery_stats);
+            var report_string = getDateTime() + " " + battery_stats.vol + " " + battery_stats.cur + " " + battery_stats.temp + "\n";
+            var dayFilename = "./reports/" + getDateTime().match(/\d+\:\d+\:\d+/)[0] + ".txt";
             
-//             http_socket.emit('old_data', {livedata: battery_stats});
-//         });
-//     });
-// }
+            fs.appendFileSync(dayFilename, report_string.toString());
+            
+            if (battery_stats.vol <= MIN_DISCHARGE_VOLTAGE && battery_stats.cur < 0)
+                charge_controller.charge_battery(battery_stats.vol);
+                
+            http_socket.emit('old_data', {livedata: battery_stats});
+        });
+    });
+}
+
+function getBatteryStats () {
+    
+    gauge.i2cWriteSync(BQ27441_ADDR, 2, writeBuffer);
+    gauge.i2cReadSync(BQ27441_ADDR,100, gauge_buffer);
+    
+    var battery_stats = {
+        vol : gauge_buffer[4]*16*16 + gauge_buffer[3],
+        rbc : gauge_buffer[12]*16*16 + gauge_buffer[11],
+        fcc : gauge_buffer[14]*16*16 + gauge_buffer[13],
+        soc : gauge_buffer[28]*16*16 + gauge_buffer[27],
+        temp : (gauge_buffer[2]*16*16 + gauge_buffer[1])/10.0 - 273.0,
+        cur : gauge_buffer[16]*16*16 + gauge_buffer[15]
+    }
+    if (battery_stats.cur >= 32267) 
+        battery_stats.cur = battery_stats.cur - 65536;          // two's complement as signed integer
+
+    return battery_stats;
+}
+
+function getDateTime() {
+
+    var date = new Date();
+
+    var hour = date.getHours();
+    hour = (hour < 10 ? "0" : "") + hour;
+
+    var min  = date.getMinutes();
+    min = (min < 10 ? "0" : "") + min;
+
+    var sec  = date.getSeconds();
+    sec = (sec < 10 ? "0" : "") + sec;
+
+    var year = date.getFullYear();
+
+    var month = date.getMonth() + 1;
+    month = (month < 10 ? "0" : "") + month;
+
+    var day  = date.getDate();
+    day = (day < 10 ? "0" : "") + day;
+
+    return year + ":" + month + ":" + day + ":" + hour + ":" + min + ":" + sec;
+
+}
 
 server.listen(80, function(){
     console.log("Express server listening on port %d in %s mode", this.address().port, app.settings.env);
 });
-//gauge.closeSync();
