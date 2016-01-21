@@ -1,3 +1,8 @@
+/**
+ * This code takes care of programming the charger BQ24261
+ * based on the requirement from the caller script.
+ */ 
+
 var exports = module.exports = {};
 
 var i2c = require('i2c-bus'),
@@ -21,47 +26,10 @@ var BQ24261_ADDR = 0x6B;
 var UPDATE_RATE = 10;
 
 // Minimum discharge voltage, at this voltage charging is initiated, in mV
-var MIN_DISCHARGE_VOLTAGE = 3450;
+var MIN_DISCHARGE_VOLTAGE = 3300;
 
 // File location to read charging profile from 
 var CHARGE_PROFILE = "testdata.txt";
-
-var gauge_test = gauge.i2cWriteSync(BQ27441_ADDR, 2, writeBuffer);
-
-if (gauge_test > 0) {
-    
-    console.log("Writen to the I2C gauge successfully");
-    console.log("Now trying to read");
-    
-    var battery_stats = getBatteryStats();
-    
-    if (battery_stats.vol <= MIN_DISCHARGE_VOLTAGE) {
-        exports.charge_battery(battery_stats.vol);
-    }
-    
-    else 
-        console.log("Battery is discharging");
-}
-
-function getBatteryStats () {
-    
-    gauge.i2cWriteSync(BQ27441_ADDR, 2, writeBuffer);
-    gauge.i2cReadSync(BQ27441_ADDR,100, gauge_buffer);
-    
-    var battery_stats = {
-        vol : gauge_buffer[4]*16*16 + gauge_buffer[3],
-        rbc : gauge_buffer[12]*16*16 + gauge_buffer[11],
-        fcc : gauge_buffer[14]*16*16 + gauge_buffer[13],
-        soc : gauge_buffer[28]*16*16 + gauge_buffer[27],
-        temp : (gauge_buffer[2]*16*16 + gauge_buffer[1])/10.0 - 273.0,
-        cur : gauge_buffer[16]*16*16 + gauge_buffer[15]
-    }
-    if (battery_stats.cur >= 32267) 
-        battery_stats.cur = battery_stats.cur - 65536;          // two's complement as signed integer
-        
-    return battery_stats;
-}
-
 
 exports.charge_battery = function(initial_voltage) {
     console.log("Initiating charging at: " + initial_voltage);
@@ -75,22 +43,7 @@ exports.charge_battery = function(initial_voltage) {
     var data4 = new Buffer([0x04, 42]);
     var data5 = new Buffer([0x05, 0]);
     var data6 = new Buffer([0x06, 112]);
-    
-    // data0[0] = 0;
-    // data0[1] = 148; // 16; //144;   // make the voltage permanent
-    // data1[0] = 1;
-    // data1[1] = 112;
-    // data2[0] = 2;
-    // data2[1] = 4;
-    // data3[0] = 3;
-    // data3[1] = 70;
-    // data4[0] = 4;
-    // data4[1] = 42;
-    // data5[0] = 5;
-    // data5[1] = 0;
-    // data6[0] = 6;
-    // data6[1] = 112;
-    
+   
     lr.on('error', function (err) {
         // 'err' contains error object
         if(err)
@@ -106,10 +59,16 @@ exports.charge_battery = function(initial_voltage) {
         
         // Each line is an ordered-pair of time,current,voltage
         // Only one of current or voltage, will be non-zero.
-        var lineParts = line.toString().split(",");
-        var time = parseFloat(lineParts[0]);
-        var current = parseFloat(lineParts[1]);
-        var voltage = parseFloat(lineParts[2]);
+        try {
+            var lineParts = line.toString().split(",");
+            var time = parseFloat(lineParts[0]);
+            var current = parseFloat(lineParts[1]);
+            var voltage = parseFloat(lineParts[2]);
+        } catch (err) {
+            console.log("Error parsing line of the file: " + err);
+            throw err;
+        }
+        
         
         if (current == 0) {
             console.log("Trying to set voltage to : " + voltage + " V for a time of : " + time);
@@ -251,7 +210,7 @@ exports.charge_battery = function(initial_voltage) {
                 }
             }
         } else {
-            console.log("Something wrong with the input, eiher one of voltage or current should be zero.");
+            console.log("Something wrong with the input, either one of voltage or current should be zero.");
         }
     });
     
@@ -264,10 +223,20 @@ exports.charge_battery = function(initial_voltage) {
     });
 }
 
+/**
+ * Sets the values of the corresponding registers in the charger
+ * 
+ * @param {Buffer} data0 Status/Control Register (R/W)
+ * @param {Buffer} data1 Control Register (R/W)
+ * @param {Buffer} data2 Control/Battery Voltage Register (R/W)
+ * @param {Buffer} data3 Vendor/Part/Revision Register (Read only)
+ * @param {Buffer} data4 Battery Termination/Fast Charger Current Register (R/W)
+ * @param {Buffer} data5 VINDPM Voltage/MINSYS Status Register
+ * @param {Buffer} data6 Safety Timer/ NTC Monitor Register (R/W)
+ */
 function setValues (data0, data1, data2, data3, data4, data5, data6) {
     
     console.log("Setting values at "  + getDateTime());
-    
     charger.i2cWrite(BQ24261_ADDR, 2, data0, function(err) { if(err) console.log("error in writing data0[0]"); });
     charger.i2cWrite(BQ24261_ADDR, 2, data1, function(err) { if(err) console.log("error in writing data1[0]"); });
     charger.i2cWrite(BQ24261_ADDR, 2, data2, function(err) { if(err) console.log("error in writing data2[0]"); });
@@ -275,9 +244,14 @@ function setValues (data0, data1, data2, data3, data4, data5, data6) {
     charger.i2cWrite(BQ24261_ADDR, 2, data4, function(err) { if(err) console.log("error in writing data4[0]"); });
     charger.i2cWrite(BQ24261_ADDR, 2, data5, function(err) { if(err) console.log("error in writing data5[0]"); });
     charger.i2cWrite(BQ24261_ADDR, 2, data6, function(err) { if(err) console.log("error in writing data6[0]"); });
-    
 }
 
+/**
+ * Gets the current system time in the format:
+ * yyyy:mm:dd:hh:mm:ss
+ * 
+ * @param None
+ */
 function getDateTime() {
 
     var date = new Date();
@@ -300,5 +274,4 @@ function getDateTime() {
     day = (day < 10 ? "0" : "") + day;
 
     return year + ":" + month + ":" + day + ":" + hour + ":" + min + ":" + sec;
-
 }

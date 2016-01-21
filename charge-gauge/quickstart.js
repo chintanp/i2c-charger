@@ -4,10 +4,10 @@ var google = require("googleapis");
 var googleAuth = require("google-auth-library");
 
 
-var SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly'];
+var SCOPES = ['https://www.googleapis.com/auth/drive'];
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH || 
                 process.env.USERPROFILE) + '/.credentials';
-var TOKEN_PATH = TOKEN_DIR + 'drive-nodejs-quickstart.json';
+var TOKEN_PATH = TOKEN_DIR + 'drive-nodejs-writeToFile2.json';
 
 // Load client secrets from a local file
 fs.readFile('client_secret.json', function processClientSecrets(err, content) {
@@ -17,7 +17,7 @@ fs.readFile('client_secret.json', function processClientSecrets(err, content) {
     }
     // Authorize a client with the loaded credentials, then call the 
     // Drive API
-    authorize(JSON.parse(content), insertFile);
+    authorize(JSON.parse(content), writeToFile);
 });
 
 /**
@@ -128,19 +128,125 @@ function listFiles(auth) {
  * 
  */
 function insertFile(auth) {
-    var service = google.drive('v3');
-    service.files.insert({
-      resource: {
-            title: 'Test',
-            mimeType: 'text/plain'
-      },
-      media: {
-            mimeType: 'text/plain',
-            body: 'Hello World updated with metadata'
-      },
-      auth: auth
-    }, function(err, response) {
-      console.log('error:', err, 'inserted:', response.id);
+    var drive = google.drive('v3');
+    
+    var fileMetadata = {
+        'name' : 'My Report',
+        'mimeType' : 'text/plain'
+    };
+    
+    var media = {
+        mimeType: 'text/plain',
+        body: 'Hello World from NodeJS'
+    };
+    
+    drive.files.create({
+        resource: fileMetadata, 
+        media: media, 
+        fields: 'id', 
+        auth: auth
+    }, function(err, file) {
+        if(err) {
+            console.log('The API returned an error: ' + err);
+            return;
+        } else {
+            console.log('New file created with file id: ' + file.id);
+        }
     });
+    
+}
+
+function writeToFile(auth) {
+    var drive = google.drive('v2');
+    
+    var dayFilename = getDateTime().match(/\d+\:\d+\:\d+/)[0] + ".txt";
+    var dayFileId = "1arxT9AvKBB7FfrzxILHHjFI5e0a7Y07hw_xZh-6UZv4";
+    
+    var fileMetadata = {
+        'name' : dayFilename,
+        'mimeType' : 'text/plain'
+    };
+    
+    var media = {
+        mimeType: 'text/plain',
+        body: 'Hello World from NodeJS and some'
+    };
+    
+    if (dayFileId == " ") {
+        console.log("Trying to create new file");
+        drive.files.create({
+            resource: fileMetadata, 
+            media: media, 
+            fields: 'id',
+            auth: auth
+        }, function(err, file) {
+            if(err) {
+                console.log('The API returned an error: ' + err);
+                return;
+            } else {
+                console.log('New file created with file id: ' + file.id);
+                dayFileId = file.id;
+            }
+        });
+    } else {
+        console.log("File already exists, trying to update");
+        
+        var file = drive.files.get({
+            fileId: dayFileId, 
+            "alt": "media"
+        });
+        
+        console.log("file is of type: " + typeof(file));
+        
+        media = {
+            mimeType: 'text/plain',
+            body: file.media.body + "someMoretext"
+        };
+        
+        drive.files.update({
+            fileId: dayFileId,
+            resource: fileMetadata, 
+            media: media, 
+            fields: 'id',
+            auth: auth
+        }, function(err, file) {
+            if(err) {
+                console.log('The API returned an error: ' + err);
+                return;
+            } else {
+                console.log('File Updated ' + file.id);
+                dayFileId = file.id;
+            }
+        });
+        
+        
+    }
+    
+    
+}
+
+function getDateTime() {
+
+    var date = new Date();
+
+    var hour = date.getHours();
+    hour = (hour < 10 ? "0" : "") + hour;
+
+    var min  = date.getMinutes();
+    min = (min < 10 ? "0" : "") + min;
+
+    var sec  = date.getSeconds();
+    sec = (sec < 10 ? "0" : "") + sec;
+
+    var year = date.getFullYear();
+
+    var month = date.getMonth() + 1;
+    month = (month < 10 ? "0" : "") + month;
+
+    var day  = date.getDate();
+    day = (day < 10 ? "0" : "") + day;
+
+    return year + ":" + month + ":" + day + ":" + hour + ":" + min + ":" + sec;
+
 }
 
