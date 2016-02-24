@@ -30,3 +30,10 @@
 
 # Debug files
 *.dSYM/
+
+# Folders that need to be ommited 
+node_modules/
+console_logs/
+error_logs/
+forever_logs/
+reports/
