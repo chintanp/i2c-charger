@@ -65,7 +65,8 @@ var i2c = require('i2c-bus'),
     
 //var auth = new googleAuth();
 var OAuth2 = google.auth.OAuth2;
-var fileContents = fs.readFileSync('client_secret.json');
+var CLIENT_SECRET_FILEPATH = 'client_secret.json';
+var fileContents = fs.readFileSync(CLIENT_SECRET_FILEPATH);
 var credentials = JSON.parse(fileContents);
 var CLIENT_SECRET = credentials.installed.client_secret;
 var CLIENT_ID = credentials.installed.client_id;
